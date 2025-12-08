@@ -1,0 +1,49 @@
+<div class="audit-container">
+  <h2>Free Website Audit</h2>
+  <p class="subtitle">
+    HI Enter your website details. We’ll analyze it and email you the full report.
+  </p>
+
+  <form [formGroup]="auditForm" (ngSubmit)="submitAudit()">
+
+    <!-- Website URL -->
+    <label>Website URL</label>
+    <input
+      type="text"
+      formControlName="url"
+      placeholder="https://example.com"
+    />
+    <div class="error" *ngIf="auditForm.get('url')?.invalid && auditForm.get('url')?.touched">
+      Website URL is required.
+    </div>
+
+    <!-- Email -->
+    <label>Email ID</label>
+    <input
+      type="email"
+      formControlName="email"
+      placeholder="yourname@gmail.com"
+    />
+    <div class="error" *ngIf="auditForm.get('email')?.invalid && auditForm.get('email')?.touched">
+      Please enter a valid email.
+    </div>
+
+    <!-- Website Type -->
+    <label>Website Type</label>
+    <select formControlName="type">
+      <option value="">Select type</option>
+      <option value="service">Service Website</option>
+      <option value="ecommerce">E-Commerce Website</option>
+      <option value="blog">Blog</option>
+    </select>
+    <div class="error" *ngIf="auditForm.get('type')?.invalid && auditForm.get('type')?.touched">
+      Please select a website type.
+    </div>
+
+    <button type="submit" [disabled]="auditForm.invalid || isSubmitting">
+      {{ isSubmitting ? 'Submitting...' : 'Run Audit' }}
+    </button>
+
+  </form>
+  <div *ngIf="!isSubmitting && auditForm.valid" class="success-message">
+    Your audit request has been submitted successfully! Check your email for the report.
