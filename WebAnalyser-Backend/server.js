@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { crawlWebsite } = require('./Crawl'); 
+require('dotenv').config();
 
 const app = express();
 const PORT = 5000;
@@ -8,51 +9,70 @@ const PORT = 5000;
 app.use(cors());
 app.use(express.json());
 
-// Main endpoint: receive audit request
+const { enqueueAuditJob, getJobStatus } = require('./queue');
+
+// Create a new audit job
 app.post('/api/audit', async (req, res) => {
-    const { url, email, type } = req.body;
+  const { url, email, type } = req.body;
 
-    console.log('Received audit request:', { url, email, type });
+  console.log('Received audit request:', { url, email, type });
 
-    // Basic validation
-    if (!url || !email || !type) {
-        return res.status(400).json({
-            success: false,
-            message: 'url, email and type are required'
-        });
-    }
+  if (!url || !email || !type) {
+    return res.status(400).json({
+      success: false,
+      message: 'url, email and type are required',
+    });
+  }
 
-    try {
-        console.log("\n🚀 Starting website crawl...");
-        // ✅ Get extracted text from crawler
-        const extractedPages = await crawlWebsite(url, 10);
-        
-        console.log("\n======================");
-        console.log("📌 FINAL EXTRACTED DATA");
-        console.log("======================\n");
+  let finalUrl = url;
+  if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+    finalUrl = 'https://' + finalUrl;
+  }
 
-        extractedPages.forEach((page) => {
-      console.log(`\n📄 PAGE ${page.page}: ${page.url}`);
-      console.log("--------------------------------------");
-      console.log("Title:", page.text.title);
-      console.log("H1:", page.text.h1);
-      console.log("Headings:", page.text.headings);
-      console.log("Word Count:", page.text.wordCount);
+  try {
+    const jobId = await enqueueAuditJob({
+      url: finalUrl,
+      email,
+      type,
     });
 
-        return res.json({
-            success: true,
-            message: "Crawling completed. Check backend console for extracted text."
-        });
-    } catch (error) {
-        console.error("Error:", error.message);
-        return res.status(500).json({
-            success: false,
-            message: "Crawling failed.",
-            error: error.message
-        });
+    console.log('Job enqueued:', jobId);
+
+    return res.json({
+      success: true,
+      jobId,
+      message: 'Audit job queued. You will receive the result by email.',
+    });
+  } catch (err) {
+    console.error('Error enqueuing job:', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to queue audit job',
+    });
+  }
+});
+
+// Optional: job status endpoint
+app.get('/api/audit/:jobId', async (req, res) => {
+  const { jobId } = req.params;
+
+  try {
+    const job = await getJobStatus(jobId);
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found',
+      });
     }
 
+    return res.json({ success: true, job });
+  } catch (err) {
+    console.error('Error fetching job:', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch job status',
+    });
+  }
 });
 
 // Health check
